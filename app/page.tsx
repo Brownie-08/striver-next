@@ -1,65 +1,129 @@
-import Image from "next/image";
+import type { Metadata } from "next";
+import { AdSlot } from "@/components/ad-slot";
+import { FootballCultureSection } from "@/components/football-culture-section";
+import { GetAppSection } from "@/components/get-app-section";
+import { HeroPost } from "@/components/hero-post";
+import { LatestNewsSection } from "@/components/latest-news-section";
+import { MentorsSection } from "@/components/mentors-section";
+import { MobileAppBanner } from "@/components/mobile-app-banner";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import { getPosts } from "@/lib/api";
+import { buildHomepageData } from "@/lib/homepage";
+import { SITE_NAME, getSiteUrl } from "@/lib/site";
+import { WomensFootballSection } from "@/components/womens-football-section";
+import { YouthFootballSection } from "@/components/youth-football-section";
 
-export default function Home() {
+export async function generateMetadata(): Promise<Metadata> {
+  const posts = await getPosts();
+  const [heroPost] = posts;
+
+  return {
+    title: SITE_NAME,
+    description:
+      "Server-rendered Striver coverage powered by WordPress data through WPGraphQL.",
+    alternates: {
+      canonical: "/",
+    },
+    openGraph: {
+      type: "website",
+      url: getSiteUrl(),
+      siteName: SITE_NAME,
+      title: SITE_NAME,
+      description:
+        heroPost?.excerpt ||
+        "Server-rendered Striver coverage powered by WordPress data through WPGraphQL.",
+      images: heroPost?.featuredImageUrl
+        ? [
+            {
+              url: heroPost.featuredImageUrl,
+              alt: heroPost.featuredImageAlt,
+            },
+          ]
+        : undefined,
+    },
+    twitter: {
+      card: heroPost?.featuredImageUrl ? "summary_large_image" : "summary",
+      title: SITE_NAME,
+      description:
+        heroPost?.excerpt ||
+        "Server-rendered Striver coverage powered by WordPress data through WPGraphQL.",
+      images: heroPost?.featuredImageUrl ? [heroPost.featuredImageUrl] : undefined,
+    },
+  };
+}
+
+export default async function HomePage() {
+  const posts = await getPosts();
+  const homepageData = buildHomepageData(posts);
+  const appBannerHref = homepageData.appCtaPost
+    ? `/posts/${homepageData.appCtaPost.slug}`
+    : "/#featured-story";
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-background text-foreground">
+      <SiteHeader />
+
+      <div className="pt-16">
+        {homepageData.featuredPost ? (
+          <HeroPost post={homepageData.featuredPost} />
+        ) : (
+          <section className="border-b border-border/70 py-24">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <div className="rounded-[1.75rem] border border-border/70 bg-card/45 p-8">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">
+                  Latest stories
+                </p>
+                <h1 className="mt-4 font-display text-4xl font-bold text-foreground">
+                  No posts are available yet.
+                </h1>
+                <p className="mt-3 max-w-2xl text-base leading-7 text-muted">
+                  The frontend is connected to WordPress and ready to render as
+                  soon as content is published.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <div className="border-b border-border/70 bg-nav-bg/55 py-6">
+          <AdSlot size="billboard" />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="bg-background/65">
+          <LatestNewsSection posts={homepageData.latestPosts} />
         </div>
-      </main>
+
+        <div className="border-y border-border/70 bg-primary/8">
+          <MentorsSection
+            post={homepageData.mentorsFeature}
+            authors={homepageData.mentorAuthors}
+          />
+        </div>
+
+        <div className="bg-background py-4">
+          <AdSlot size="leaderboard" />
+        </div>
+
+        <div className="border-y border-border/70 bg-accent-purple/8">
+          <YouthFootballSection posts={homepageData.youthPosts} />
+        </div>
+
+        <div className="border-y border-border/70 bg-secondary/12">
+          <WomensFootballSection posts={homepageData.womensPosts} />
+        </div>
+
+        <div className="border-y border-border/70 bg-accent-orange/8">
+          <FootballCultureSection posts={homepageData.culturePosts} />
+        </div>
+
+        <div className="border-t border-border/70 bg-nav-bg/30">
+          <GetAppSection ctaPost={homepageData.appCtaPost} />
+        </div>
+
+        <SiteFooter />
+      </div>
+      <MobileAppBanner ctaHref={appBannerHref} />
     </div>
   );
 }

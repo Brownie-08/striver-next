@@ -1,26 +1,216 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: 318 36% 9%;
+  --foreground: 0 0% 100%;
+  --nav-bg: 240 7% 4%;
+  --primary: 168 32% 35%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 33 53% 96%;
+  --secondary-foreground: 318 36% 9%;
+  --muted: 20 4% 58%;
+  --muted-foreground: 20 4% 58%;
+  --accent: 137 85% 81%;
+  --accent-foreground: 318 36% 9%;
+  --card: 318 36% 12%;
+  --card-foreground: 0 0% 100%;
+  --border: 318 20% 18%;
+  --input: 318 20% 18%;
+  --ring: 168 32% 35%;
+  --accent-purple: 250 91% 66%;
+  --accent-orange: 25 95% 53%;
+  --warm-cream: 28 45% 71%;
+}
+
+html.light {
+  --background: 220 20% 96%;
+  --foreground: 235 20% 12%;
+  --nav-bg: 0 0% 98%;
+  --primary: 168 36% 36%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 235 16% 14%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 235 12% 45%;
+  --muted-foreground: 235 12% 40%;
+  --accent: 168 36% 36%;
+  --accent-foreground: 0 0% 100%;
+  --card: 0 0% 100%;
+  --card-foreground: 235 20% 12%;
+  --border: 220 12% 82%;
+  --input: 220 12% 82%;
+  --ring: 168 36% 36%;
+  --accent-purple: 252 72% 55%;
+  --accent-orange: 25 88% 48%;
+  --warm-cream: 28 38% 63%;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-nav-bg: hsl(var(--nav-bg));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-accent-purple: hsl(var(--accent-purple));
+  --color-accent-orange: hsl(var(--accent-orange));
+  --color-warm-cream: hsl(var(--warm-cream));
+  --font-sans: var(--font-body);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100%;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-body), system-ui, sans-serif;
+  background-image:
+    radial-gradient(circle at top, rgba(60, 117, 106, 0.18), transparent 26%),
+    linear-gradient(180deg, rgba(10, 10, 11, 0.96), rgba(30, 14, 24, 1));
+}
+
+html.light body {
+  background-image:
+    radial-gradient(circle at top, rgba(60, 117, 106, 0.14), transparent 35%),
+    linear-gradient(180deg, rgba(248, 251, 252, 0.96), rgba(236, 241, 245, 1));
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
+}
+
+a {
+  transition:
+    color 160ms ease,
+    opacity 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.font-display {
+  font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
+}
+
+.font-body {
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.post-content {
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+  line-height: 1.85;
+}
+
+.post-content > * + * {
+  margin-top: 1.5rem;
+}
+
+.post-content h2,
+.post-content h3,
+.post-content h4 {
+  font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
+  color: hsl(var(--foreground));
+  line-height: 1.15;
+}
+
+.post-content h2 {
+  margin-top: 2.75rem;
+  font-size: clamp(1.75rem, 3vw, 2.4rem);
+}
+
+.post-content h3 {
+  margin-top: 2.25rem;
+  font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+}
+
+.post-content p,
+.post-content li,
+.post-content blockquote {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+html.light .post-content p,
+html.light .post-content li,
+html.light .post-content blockquote {
+  color: rgba(29, 31, 39, 0.86);
+}
+
+.post-content ul,
+.post-content ol {
+  padding-left: 1.25rem;
+}
+
+.post-content li + li {
+  margin-top: 0.65rem;
+}
+
+.post-content a {
+  color: hsl(var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 0.24em;
+}
+
+.post-content blockquote {
+  border-left: 3px solid hsl(var(--primary));
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+}
+
+.post-content figure {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.post-content figure img,
+.post-content iframe {
+  width: 100%;
+  max-width: 100%;
+}
+
+.post-content iframe {
+  min-height: 24rem;
+}
+
+.post-content img {
+  border-radius: 1.25rem;
+}
+
+.post-content pre {
+  overflow-x: auto;
+  border-radius: 1rem;
+  background: rgba(10, 10, 11, 0.85);
+  padding: 1rem;
+}
+
+.post-content code {
+  font-size: 0.95em;
+}
+
+.post-content .wp-block-image,
+.post-content .wp-block-embed {
+  margin-top: 2rem;
 }
