@@ -15,28 +15,46 @@ export function BrandLogo({
     <Link
       href="/"
       className={cn(
-        "inline-flex items-center gap-3 text-foreground hover:opacity-90",
+        "inline-flex items-center gap-2.5 text-foreground hover:opacity-90",
         className,
       )}
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/40 bg-secondary/90 shadow-[0_8px_30px_rgba(60,117,106,0.18)]">
-        <Image src="/striver-ball.svg" alt="" width={24} height={24} />
+      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/70 shadow-[0_8px_30px_rgba(60,117,106,0.18)]">
+        <Image
+          src="/brand/striver-square-light.svg"
+          alt=""
+          fill
+          sizes="40px"
+          className="brand-asset-light object-cover"
+        />
+        <Image
+          src="/brand/striver-square-dark.svg"
+          alt=""
+          fill
+          sizes="40px"
+          className="brand-asset-dark object-cover"
+        />
       </span>
-
-      <span className="flex flex-col leading-none">
-        <span
-          className={cn(
-            "font-display text-xl font-bold uppercase tracking-[0.26em]",
-            compact && "text-base",
-          )}
-        >
-          Striver
-        </span>
-        {!compact ? (
-          <span className="font-body text-[10px] uppercase tracking-[0.22em] text-muted">
-            Football stories that move
-          </span>
-        ) : null}
+      <span
+        className={cn(
+          "relative h-5 w-[122px] shrink-0 sm:h-6 sm:w-[148px]",
+          compact && "h-4 w-[98px] sm:h-5 sm:w-[122px]",
+        )}
+      >
+        <Image
+          src="/brand/striver-wordmark-light.svg"
+          alt="Striver"
+          fill
+          sizes={compact ? "122px" : "148px"}
+          className="brand-asset-light object-contain object-left"
+        />
+        <Image
+          src="/brand/striver-wordmark-dark.svg"
+          alt="Striver"
+          fill
+          sizes={compact ? "122px" : "148px"}
+          className="brand-asset-dark object-contain object-left"
+        />
       </span>
     </Link>
   );

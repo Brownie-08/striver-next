@@ -116,6 +116,22 @@ a {
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
+.brand-asset-light {
+  display: block;
+}
+
+.brand-asset-dark {
+  display: none;
+}
+
+html.light .brand-asset-light {
+  display: none;
+}
+
+html.light .brand-asset-dark {
+  display: block;
+}
+
 .post-content {
   color: hsl(var(--foreground));
   font-size: 1rem;

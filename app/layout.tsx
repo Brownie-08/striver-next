@@ -36,9 +36,12 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
   },
   icons: {
-    icon: [{ url: "/striver-ball.svg", type: "image/svg+xml" }],
-    shortcut: "/striver-ball.svg",
-    apple: "/striver-ball.svg",
+    icon: [
+      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/brand/striver-square-dark.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
   },
 };
 

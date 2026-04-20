@@ -49,7 +49,7 @@ export function GetAppSection({ ctaPost }: GetAppSectionProps) {
 
               <div className="mt-5 overflow-hidden rounded-[1.25rem]">
                 <Image
-                  src="/favicon.ico"
+                  src="/brand/striver-square-light.svg"
                   alt=""
                   width={224}
                   height={144}
