@@ -15,30 +15,14 @@ export function BrandLogo({
     <Link
       href="/"
       className={cn(
-        "inline-flex items-center gap-2.5 text-foreground hover:opacity-90",
+        "inline-flex flex-col items-start text-foreground hover:opacity-90",
         className,
       )}
     >
-      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/70 shadow-[0_8px_30px_rgba(60,117,106,0.18)]">
-        <Image
-          src="/brand/striver-square-light.svg"
-          alt=""
-          fill
-          sizes="40px"
-          className="brand-asset-light object-cover"
-        />
-        <Image
-          src="/brand/striver-square-dark.svg"
-          alt=""
-          fill
-          sizes="40px"
-          className="brand-asset-dark object-cover"
-        />
-      </span>
       <span
         className={cn(
-          "relative h-5 w-[122px] shrink-0 sm:h-6 sm:w-[148px]",
-          compact && "h-4 w-[98px] sm:h-5 sm:w-[122px]",
+          "relative h-5 w-[124px] shrink-0 sm:h-6 sm:w-[152px]",
+          compact && "h-4 w-[100px] sm:h-5 sm:w-[124px]",
         )}
       >
         <Image
@@ -56,6 +40,11 @@ export function BrandLogo({
           className="brand-asset-dark object-contain object-left"
         />
       </span>
+      {!compact ? (
+        <span className="font-body text-[9px] uppercase tracking-[0.2em] text-muted">
+          Football stories that move
+        </span>
+      ) : null}
     </Link>
   );
 }

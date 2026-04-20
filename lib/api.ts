@@ -1,9 +1,23 @@
 import { cache } from "react";
 import { getExcerpt, stripHtml } from "./utils";
 
-const WORDPRESS_API_URL =
+const DEFAULT_WORDPRESS_BACKEND_URL = "https://www.striver.football";
+
+function trimTrailingSlash(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
+const WORDPRESS_BACKEND_URL = trimTrailingSlash(
+  process.env.WORDPRESS_BACKEND_URL?.trim() || DEFAULT_WORDPRESS_BACKEND_URL,
+);
+const WORDPRESS_GRAPHQL_URL = trimTrailingSlash(
   process.env.WORDPRESS_GRAPHQL_URL?.trim() ||
-  "https://www.striver.football/graphql";
+    `${WORDPRESS_BACKEND_URL}/graphql`,
+);
+const WORDPRESS_REST_API_URL = trimTrailingSlash(
+  process.env.WORDPRESS_REST_API_URL?.trim() ||
+    `${WORDPRESS_BACKEND_URL}/wp-json/wp/v2`,
+);
 const REVALIDATE_SECONDS = 60;
 export const LIST_POST_LIMIT = 80;
 
@@ -14,6 +28,50 @@ type GraphQLError = {
 type GraphQLResponse<T> = {
   data?: T;
   errors?: GraphQLError[];
+};
+
+type WordPressRestPostNode = {
+  id: number;
+  title?: {
+    rendered?: string | null;
+  } | null;
+  slug: string;
+  status?: string | null;
+  date?: string | null;
+  content?: {
+    rendered?: string | null;
+  } | null;
+  excerpt?: {
+    rendered?: string | null;
+  } | null;
+  _embedded?: {
+    author?: Array<
+      | {
+          name?: string | null;
+          slug?: string | null;
+          avatar_urls?: Record<string, string> | null;
+        }
+      | null
+    >;
+    "wp:featuredmedia"?: Array<
+      | {
+          source_url?: string | null;
+          alt_text?: string | null;
+        }
+      | null
+    >;
+    "wp:term"?: Array<
+      | Array<
+          | {
+              name?: string | null;
+              slug?: string | null;
+              taxonomy?: string | null;
+            }
+          | null
+        >
+      | null
+    >;
+  } | null;
 };
 
 type WordPressPostNode = {
@@ -165,9 +223,10 @@ export async function fetchGraphQL<T>(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<T> {
-  const response = await fetch(WORDPRESS_API_URL, {
+  const response = await fetch(WORDPRESS_GRAPHQL_URL, {
     method: "POST",
     headers: {
+      Accept: "application/json",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -205,6 +264,39 @@ export async function fetchGraphQL<T>(
   }
 
   return json.data;
+}
+
+async function fetchWordPressREST<T>(
+  path: string,
+  params?: Record<string, string>,
+): Promise<T> {
+  const searchParams = new URLSearchParams(params);
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const queryString = searchParams.toString();
+  const url = `${WORDPRESS_REST_API_URL}${normalizedPath}${queryString ? `?${queryString}` : ""}`;
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+    },
+    next: {
+      revalidate: REVALIDATE_SECONDS,
+    },
+  });
+  const rawResponse = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `REST request failed with status ${response.status} ${response.statusText}. URL: ${url}. Body preview: ${rawResponse.slice(0, 180)}`,
+    );
+  }
+
+  try {
+    return JSON.parse(rawResponse) as T;
+  } catch {
+    throw new Error(
+      `REST response was not valid JSON. URL: ${url}. Body preview: ${rawResponse.slice(0, 180)}`,
+    );
+  }
 }
 
 function normalizePost(node: WordPressPostNode): WordPressPost {
@@ -247,6 +339,69 @@ function normalizePost(node: WordPressPostNode): WordPressPost {
   };
 }
 
+function getCategoryTerms(node: WordPressRestPostNode) {
+  const termGroups = node._embedded?.["wp:term"] ?? [];
+  const terms = termGroups.flatMap((group) => group ?? []);
+  const categories = terms.filter(
+    (term) =>
+      term?.name?.trim() &&
+      term?.slug?.trim() &&
+      (!term?.taxonomy || term.taxonomy === "category"),
+  );
+
+  const uniqueCategories = new Map<string, { name: string; slug: string }>();
+  for (const category of categories) {
+    const slug = category?.slug?.trim();
+    const name = category?.name?.trim();
+    if (!slug || !name) {
+      continue;
+    }
+    uniqueCategories.set(slug, { name, slug });
+  }
+
+  return Array.from(uniqueCategories.values());
+}
+
+function getAuthorAvatarUrl(
+  avatarUrls: Record<string, string> | null | undefined,
+) {
+  if (!avatarUrls) {
+    return null;
+  }
+
+  return (
+    avatarUrls["96"] ||
+    avatarUrls["48"] ||
+    avatarUrls["24"] ||
+    Object.values(avatarUrls)[0] ||
+    null
+  );
+}
+
+function normalizeRestPost(node: WordPressRestPostNode): WordPressPost {
+  const cleanTitle = stripHtml(node.title?.rendered ?? "") || "Untitled post";
+  const content = node.content?.rendered ?? "";
+  const excerptSource = node.excerpt?.rendered ?? content;
+  const author = node._embedded?.author?.[0];
+  const featuredMedia = node._embedded?.["wp:featuredmedia"]?.[0];
+
+  return {
+    id: String(node.id),
+    title: cleanTitle,
+    slug: node.slug,
+    date: node.date ?? null,
+    content,
+    excerpt: getExcerpt(excerptSource),
+    authorName: author?.name?.trim() || "Striver Staff",
+    authorSlug: author?.slug?.trim() || "striver-staff",
+    authorAvatarUrl: getAuthorAvatarUrl(author?.avatar_urls),
+    categories: getCategoryTerms(node),
+    featuredImageUrl: featuredMedia?.source_url?.trim() || null,
+    featuredImageAlt:
+      featuredMedia?.alt_text?.trim() || cleanTitle || "Striver article image",
+  };
+}
+
 export const getPosts = cache(async (first = LIST_POST_LIMIT) => {
   try {
     const data = await fetchGraphQL<{
@@ -254,11 +409,30 @@ export const getPosts = cache(async (first = LIST_POST_LIMIT) => {
         nodes: WordPressPostNode[];
       };
     }>(POSTS_QUERY, { first });
-
-    return dedupePosts(data.posts.nodes.map(normalizePost));
+    const posts = dedupePosts(data.posts.nodes.map(normalizePost));
+    if (posts.length) {
+      return posts;
+    }
+    console.warn("[getPosts] GraphQL returned no posts, trying REST fallback", {
+      first,
+      endpoint: WORDPRESS_GRAPHQL_URL,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[getPosts] GraphQL fetch failed", { first, message });
+  }
+
+  try {
+    const perPage = Math.max(1, Math.min(first, 100));
+    const data = await fetchWordPressREST<WordPressRestPostNode[]>("/posts", {
+      per_page: String(perPage),
+      status: "publish",
+      _embed: "author,wp:featuredmedia,wp:term",
+    });
+    return dedupePosts(data.map(normalizeRestPost));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[getPosts] REST fetch failed", { first, message });
     return [];
   }
 });
@@ -300,10 +474,30 @@ export const getPostBySlug = cache(async (slug: string) => {
       message.toLowerCase().includes("authorization") ||
       message.toLowerCase().includes("not valid json")
     ) {
+      console.warn("[getPostBySlug] trying REST fallback", {
+        slug,
+        endpoint: WORDPRESS_REST_API_URL,
+      });
+    }
+  }
+
+  try {
+    const data = await fetchWordPressREST<WordPressRestPostNode[]>("/posts", {
+      slug,
+      status: "publish",
+      per_page: "1",
+      _embed: "author,wp:featuredmedia,wp:term",
+    });
+    const post = data[0] ?? null;
+    console.log("[getPostBySlug] REST response", { slug, post });
+    if (!post) {
       return null;
     }
-
-    throw error;
+    return normalizeRestPost(post);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[getPostBySlug] REST fetch failed", { slug, message });
+    return null;
   }
 });
 
@@ -317,10 +511,32 @@ export const getPostSlugs = cache(async (first = 24) => {
       };
     }>(POST_SLUGS_QUERY, { first });
 
-    return data.posts.nodes.map((node) => node.slug);
+    const slugs = data.posts.nodes.map((node) => node.slug).filter(Boolean);
+    if (slugs.length) {
+      return slugs;
+    }
+    console.warn("[getPostSlugs] GraphQL returned no slugs, trying REST fallback", {
+      first,
+      endpoint: WORDPRESS_GRAPHQL_URL,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[getPostSlugs] GraphQL fetch failed", { first, message });
+  }
+
+  try {
+    const perPage = Math.max(1, Math.min(first, 100));
+    const data = await fetchWordPressREST<Array<{ slug?: string }>>("/posts", {
+      per_page: String(perPage),
+      status: "publish",
+      _fields: "slug",
+    });
+    return data
+      .map((node) => node.slug?.trim())
+      .filter((slug): slug is string => Boolean(slug));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[getPostSlugs] REST fetch failed", { first, message });
     return [];
   }
 });
