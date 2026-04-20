@@ -20,6 +20,7 @@ type WordPressPostNode = {
   id: string;
   title: string;
   slug: string;
+  status?: string | null;
   date?: string | null;
   content?: string | null;
   excerpt?: string | null;
@@ -82,7 +83,7 @@ function dedupePosts(posts: WordPressPost[]) {
 
 const POSTS_QUERY = `
   query PostsQuery($first: Int!) {
-    posts(first: $first) {
+    posts(first: $first, where: { status: PUBLISH }) {
       nodes {
         id
         title
@@ -116,11 +117,12 @@ const POSTS_QUERY = `
 `;
 
 const POST_BY_SLUG_QUERY = `
-  query PostBySlugQuery($slug: ID!) {
+  query GetPost($slug: ID!) {
     post(id: $slug, idType: SLUG) {
       id
       title
       slug
+      status
       date
       excerpt
       content
@@ -151,7 +153,7 @@ const POST_BY_SLUG_QUERY = `
 
 const POST_SLUGS_QUERY = `
   query PostSlugsQuery($first: Int!) {
-    posts(first: $first) {
+    posts(first: $first, where: { status: PUBLISH }) {
       nodes {
         slug
       }
@@ -177,13 +179,22 @@ export async function fetchGraphQL<T>(
     },
   });
 
+  const rawResponse = await response.text();
+
   if (!response.ok) {
     throw new Error(
-      `GraphQL request failed with status ${response.status} ${response.statusText}`,
+      `GraphQL request failed with status ${response.status} ${response.statusText}. Body preview: ${rawResponse.slice(0, 180)}`,
     );
   }
 
-  const json = (await response.json()) as GraphQLResponse<T>;
+  let json: GraphQLResponse<T>;
+  try {
+    json = JSON.parse(rawResponse) as GraphQLResponse<T>;
+  } catch {
+    throw new Error(
+      `GraphQL response was not valid JSON. Body preview: ${rawResponse.slice(0, 180)}`,
+    );
+  }
 
   if (json.errors?.length) {
     throw new Error(json.errors.map((error) => error.message).join("; "));
@@ -237,31 +248,79 @@ function normalizePost(node: WordPressPostNode): WordPressPost {
 }
 
 export const getPosts = cache(async (first = LIST_POST_LIMIT) => {
-  const data = await fetchGraphQL<{
-    posts: {
-      nodes: WordPressPostNode[];
-    };
-  }>(POSTS_QUERY, { first });
+  try {
+    const data = await fetchGraphQL<{
+      posts: {
+        nodes: WordPressPostNode[];
+      };
+    }>(POSTS_QUERY, { first });
 
-  return dedupePosts(data.posts.nodes.map(normalizePost));
+    return dedupePosts(data.posts.nodes.map(normalizePost));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[getPosts] GraphQL fetch failed", { first, message });
+    return [];
+  }
 });
 
 export const getPostBySlug = cache(async (slug: string) => {
-  const data = await fetchGraphQL<{
-    post: WordPressPostNode | null;
-  }>(POST_BY_SLUG_QUERY, { slug });
+  try {
+    const data = await fetchGraphQL<{
+      post: WordPressPostNode | null;
+    }>(POST_BY_SLUG_QUERY, { slug });
 
-  return data.post ? normalizePost(data.post) : null;
+    console.log("[getPostBySlug] GraphQL response", {
+      slug,
+      post: data.post,
+    });
+
+    if (!data.post) {
+      return null;
+    }
+
+    if (
+      data.post.status &&
+      data.post.status.trim().toLowerCase() !== "publish"
+    ) {
+      return null;
+    }
+
+    return normalizePost(data.post);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[getPostBySlug] GraphQL fetch failed", {
+      slug,
+      message,
+    });
+
+    if (
+      message.includes("403") ||
+      message.toLowerCase().includes("forbidden") ||
+      message.toLowerCase().includes("not allowed") ||
+      message.toLowerCase().includes("authorization") ||
+      message.toLowerCase().includes("not valid json")
+    ) {
+      return null;
+    }
+
+    throw error;
+  }
 });
 
 export const getPostSlugs = cache(async (first = 24) => {
-  const data = await fetchGraphQL<{
-    posts: {
-      nodes: Array<{
-        slug: string;
-      }>;
-    };
-  }>(POST_SLUGS_QUERY, { first });
+  try {
+    const data = await fetchGraphQL<{
+      posts: {
+        nodes: Array<{
+          slug: string;
+        }>;
+      };
+    }>(POST_SLUGS_QUERY, { first });
 
-  return data.posts.nodes.map((node) => node.slug);
+    return data.posts.nodes.map((node) => node.slug);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[getPostSlugs] GraphQL fetch failed", { first, message });
+    return [];
+  }
 });
