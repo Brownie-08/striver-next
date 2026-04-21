@@ -329,9 +329,9 @@ function normalizePost(node: WordPressPostNode): WordPressPost {
     excerpt: getExcerpt(excerptSource),
     authorName: node.author?.node?.name?.trim() || "Striver Staff",
     authorSlug,
-    authorAvatarUrl: node.author?.node?.avatar?.url?.trim() || null,
+    authorAvatarUrl: normalizeImageUrl(node.author?.node?.avatar?.url),
     categories,
-    featuredImageUrl: node.featuredImage?.node?.sourceUrl || null,
+    featuredImageUrl: normalizeImageUrl(node.featuredImage?.node?.sourceUrl),
     featuredImageAlt:
       node.featuredImage?.node?.altText?.trim() ||
       cleanTitle ||
@@ -370,12 +370,30 @@ function getAuthorAvatarUrl(
   }
 
   return (
-    avatarUrls["96"] ||
-    avatarUrls["48"] ||
-    avatarUrls["24"] ||
-    Object.values(avatarUrls)[0] ||
-    null
+    normalizeImageUrl(
+      avatarUrls["96"] ||
+        avatarUrls["48"] ||
+        avatarUrls["24"] ||
+        Object.values(avatarUrls)[0],
+    ) || null
   );
+}
+
+function normalizeImageUrl(value: string | null | undefined) {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const raw = value.trim();
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === "http:") {
+      parsed.protocol = "https:";
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
 }
 
 function normalizeRestPost(node: WordPressRestPostNode): WordPressPost {
@@ -396,7 +414,7 @@ function normalizeRestPost(node: WordPressRestPostNode): WordPressPost {
     authorSlug: author?.slug?.trim() || "striver-staff",
     authorAvatarUrl: getAuthorAvatarUrl(author?.avatar_urls),
     categories: getCategoryTerms(node),
-    featuredImageUrl: featuredMedia?.source_url?.trim() || null,
+    featuredImageUrl: normalizeImageUrl(featuredMedia?.source_url),
     featuredImageAlt:
       featuredMedia?.alt_text?.trim() || cleanTitle || "Striver article image",
   };
