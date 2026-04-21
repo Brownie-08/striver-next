@@ -39,6 +39,8 @@ export function PostImage({
 }: PostImageProps) {
   const normalizedSrc = useMemo(() => resolveImageSrc(src), [src]);
   const [resolvedSrc, setResolvedSrc] = useState(normalizedSrc);
+  const isRemoteImage =
+    resolvedSrc.startsWith("https://") || resolvedSrc.startsWith("http://");
 
   useEffect(() => {
     setResolvedSrc(normalizedSrc);
@@ -51,6 +53,7 @@ export function PostImage({
       fill
       sizes={sizes}
       priority={priority}
+      unoptimized={isRemoteImage}
       className={cn("object-cover", className)}
       onError={() => {
         if (resolvedSrc !== FALLBACK_POST_IMAGE) {

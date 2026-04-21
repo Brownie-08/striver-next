@@ -32,6 +32,21 @@ export function SiteHeader() {
     };
   }, []);
 
+  useEffect(() => {
+    const { style } = document.body;
+    const previousOverflow = style.overflow;
+
+    if (isMobileOpen) {
+      style.overflow = "hidden";
+    } else {
+      style.overflow = previousOverflow || "";
+    }
+
+    return () => {
+      style.overflow = previousOverflow;
+    };
+  }, [isMobileOpen]);
+
   function openMenu(label: string) {
     if (closeTimeoutRef.current) {
       clearTimeout(closeTimeoutRef.current);
@@ -119,7 +134,7 @@ export function SiteHeader() {
           <button
             type="button"
             onClick={toggleTheme}
-            className="hidden h-11 w-11 items-center justify-center rounded-full border border-border/70 text-muted transition-colors hover:text-foreground sm:inline-flex"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 text-muted transition-colors hover:text-foreground sm:h-11 sm:w-11"
             aria-label="Toggle color theme"
           >
             {isLightTheme ? (
@@ -184,8 +199,8 @@ export function SiteHeader() {
       </div>
 
       {isMobileOpen ? (
-        <div className="border-t border-border/80 bg-nav-bg/98 px-4 pb-5 md:hidden">
-          <div className="space-y-2 py-4">
+        <div className="border-t border-border/80 bg-nav-bg/98 md:hidden">
+          <div className="max-h-[calc(100dvh-4rem)] space-y-2 overflow-y-auto overscroll-contain px-4 py-4 pb-5">
             {primaryNav.map((item) => (
               <div
                 key={item.label}

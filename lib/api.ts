@@ -20,6 +20,28 @@ const WORDPRESS_REST_API_URL = trimTrailingSlash(
 );
 const REVALIDATE_SECONDS = 60;
 export const LIST_POST_LIMIT = 80;
+const seenApiLogKeys = new Set<string>();
+
+function logApi(
+  level: "warn" | "error",
+  key: string,
+  message: string,
+  payload?: Record<string, unknown>,
+) {
+  if (process.env.NODE_ENV === "production") {
+    if (seenApiLogKeys.has(key)) {
+      return;
+    }
+    seenApiLogKeys.add(key);
+  }
+
+  if (payload) {
+    console[level](message, payload);
+    return;
+  }
+
+  console[level](message);
+}
 
 type GraphQLError = {
   message: string;
@@ -385,6 +407,27 @@ function normalizeImageUrl(value: string | null | undefined) {
   }
 
   const raw = value.trim();
+
+  if (raw.startsWith("//")) {
+    try {
+      return new URL(`https:${raw}`).toString();
+    } catch {
+      return null;
+    }
+  }
+
+  if (raw.startsWith("/")) {
+    try {
+      const relativeUrl = new URL(raw, `${WORDPRESS_BACKEND_URL}/`);
+      if (relativeUrl.protocol === "http:") {
+        relativeUrl.protocol = "https:";
+      }
+      return relativeUrl.toString();
+    } catch {
+      return null;
+    }
+  }
+
   try {
     const parsed = new URL(raw);
     if (parsed.protocol === "http:") {
@@ -431,13 +474,16 @@ export const getPosts = cache(async (first = LIST_POST_LIMIT) => {
     if (posts.length) {
       return posts;
     }
-    console.warn("[getPosts] GraphQL returned no posts, trying REST fallback", {
+    logApi("warn", "getPosts:graphql-empty", "[getPosts] GraphQL returned no posts, trying REST fallback", {
       first,
       endpoint: WORDPRESS_GRAPHQL_URL,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[getPosts] GraphQL fetch failed", { first, message });
+    logApi("error", "getPosts:graphql-failed", "[getPosts] GraphQL fetch failed", {
+      first,
+      message,
+    });
   }
 
   try {
@@ -450,7 +496,10 @@ export const getPosts = cache(async (first = LIST_POST_LIMIT) => {
     return dedupePosts(data.map(normalizeRestPost));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[getPosts] REST fetch failed", { first, message });
+    logApi("error", "getPosts:rest-failed", "[getPosts] REST fetch failed", {
+      first,
+      message,
+    });
     return [];
   }
 });
@@ -461,10 +510,15 @@ export const getPostBySlug = cache(async (slug: string) => {
       post: WordPressPostNode | null;
     }>(POST_BY_SLUG_QUERY, { slug });
 
-    console.log("[getPostBySlug] GraphQL response", {
-      slug,
-      post: data.post,
-    });
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[getPostBySlug] GraphQL response summary", {
+        slug,
+        found: Boolean(data.post),
+        status: data.post?.status ?? null,
+        title: data.post?.title?.slice(0, 120) ?? null,
+        hasFeaturedImage: Boolean(data.post?.featuredImage?.node?.sourceUrl),
+      });
+    }
 
     if (!data.post) {
       return null;
@@ -480,7 +534,7 @@ export const getPostBySlug = cache(async (slug: string) => {
     return normalizePost(data.post);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[getPostBySlug] GraphQL fetch failed", {
+    logApi("error", "getPostBySlug:graphql-failed", "[getPostBySlug] GraphQL fetch failed", {
       slug,
       message,
     });
@@ -492,7 +546,7 @@ export const getPostBySlug = cache(async (slug: string) => {
       message.toLowerCase().includes("authorization") ||
       message.toLowerCase().includes("not valid json")
     ) {
-      console.warn("[getPostBySlug] trying REST fallback", {
+      logApi("warn", "getPostBySlug:rest-fallback", "[getPostBySlug] trying REST fallback", {
         slug,
         endpoint: WORDPRESS_REST_API_URL,
       });
@@ -507,14 +561,28 @@ export const getPostBySlug = cache(async (slug: string) => {
       _embed: "author,wp:featuredmedia,wp:term",
     });
     const post = data[0] ?? null;
-    console.log("[getPostBySlug] REST response", { slug, post });
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[getPostBySlug] REST response summary", {
+        slug,
+        found: Boolean(post),
+        id: post?.id ?? null,
+        status: post?.status ?? null,
+        title: post?.title?.rendered
+          ? stripHtml(post.title.rendered).slice(0, 120)
+          : null,
+        hasFeaturedImage: Boolean(post?._embedded?.["wp:featuredmedia"]?.[0]),
+      });
+    }
     if (!post) {
       return null;
     }
     return normalizeRestPost(post);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[getPostBySlug] REST fetch failed", { slug, message });
+    logApi("error", "getPostBySlug:rest-failed", "[getPostBySlug] REST fetch failed", {
+      slug,
+      message,
+    });
     return null;
   }
 });
@@ -533,13 +601,16 @@ export const getPostSlugs = cache(async (first = 24) => {
     if (slugs.length) {
       return slugs;
     }
-    console.warn("[getPostSlugs] GraphQL returned no slugs, trying REST fallback", {
+    logApi("warn", "getPostSlugs:graphql-empty", "[getPostSlugs] GraphQL returned no slugs, trying REST fallback", {
       first,
       endpoint: WORDPRESS_GRAPHQL_URL,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[getPostSlugs] GraphQL fetch failed", { first, message });
+    logApi("error", "getPostSlugs:graphql-failed", "[getPostSlugs] GraphQL fetch failed", {
+      first,
+      message,
+    });
   }
 
   try {
@@ -554,7 +625,10 @@ export const getPostSlugs = cache(async (first = 24) => {
       .filter((slug): slug is string => Boolean(slug));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[getPostSlugs] REST fetch failed", { first, message });
+    logApi("error", "getPostSlugs:rest-failed", "[getPostSlugs] REST fetch failed", {
+      first,
+      message,
+    });
     return [];
   }
 });
